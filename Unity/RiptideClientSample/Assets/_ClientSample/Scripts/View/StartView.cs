@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using TMPro;
+using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
@@ -6,7 +7,7 @@ namespace _ClientSample.Scripts.View
 {
     public class StartView : MonoBehaviour
     {
-        [SerializeField] private InputField _inputField;
+        [SerializeField] private TMP_InputField _inputField;
         [SerializeField] private Button _connectButton;
         
         private readonly UnityEvent<string> _connectEvent = new();

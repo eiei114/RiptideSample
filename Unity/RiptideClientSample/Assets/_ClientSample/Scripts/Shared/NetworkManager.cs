@@ -1,8 +1,9 @@
 ﻿using System;
+using _ClientSample.Scripts.Core;
 using Riptide;
 using Riptide.Utils;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityEngine.Events;
 
 namespace _ClientSample.Scripts.Shared
 {
@@ -25,6 +26,10 @@ namespace _ClientSample.Scripts.Shared
 
         private string _hogeName;
         private Client _client;
+        private PlayerRegistry _playerRegistry;
+        private readonly UnityEvent _viewChangeEvent = new();
+        
+        public UnityEvent ViewChangeEvent => _viewChangeEvent;
 
         private void Awake()
         {
@@ -57,6 +62,11 @@ namespace _ClientSample.Scripts.Shared
             _hogeName = hogeName;
             _client.Connect($"{ip}:{port}");
         }
+        
+        public void Disconnect()
+        {
+            _client.Disconnect();
+        }
 
         private void DidConnect(object sender, EventArgs e)
         {
@@ -65,20 +75,28 @@ namespace _ClientSample.Scripts.Shared
             _client.Send(message);
         }
 
-        private void DidDisconnect(object sender, DisconnectedEventArgs e)
-        {
-            //Todo: クライアント側が持つプレイヤーのリストをクリアする
-        }
-
         private void PlayerLeft(object sender, ClientDisconnectedEventArgs e)
         {
-            //Todo: クライアント側が持つプレイヤーのリストから抜けたプレイヤーを削除する
+            //Todo:抜けたプレイヤーのViewを削除
+            _playerRegistry.RemovePlayer(e.Id);
+        }
+
+        private void DidDisconnect(object sender, DisconnectedEventArgs e)
+        {
+            _playerRegistry.RemoveAllPlayers();
+            _viewChangeEvent.Invoke();
         }
 
         private void FailedToConnect(object sender, ConnectionFailedEventArgs e)
         {
             //Startシーンに遷移
-            SceneManager.LoadSceneAsync("Start");
+            _viewChangeEvent.Invoke();
+        }
+        
+        public void SendAddScoreMessage()
+        {
+            var message = Message.Create(MessageSendMode.Reliable, ClientToServerId.PlayerInput);
+            _client.Send(message);
         }
     }
 }
