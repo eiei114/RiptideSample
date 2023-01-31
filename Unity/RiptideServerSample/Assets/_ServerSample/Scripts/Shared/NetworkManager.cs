@@ -1,10 +1,10 @@
 #if !UNITY_EDITOR
 using System;
 #endif
-using _sample.Scripts.Core.Player;
 using Riptide;
 using Riptide.Utils;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace _sample.Scripts.Shared
 {
@@ -23,36 +23,17 @@ namespace _sample.Scripts.Shared
     {
         [SerializeField] private ushort port;
         [SerializeField] private ushort maxConnections;
-        [SerializeField] private PlayerSpawner playerSpawner;
-        [SerializeField] private PlayerController playerPrefab;
-        [SerializeField] private PlayerRegistry playerRegistry;
-
         private Server _server;
-        private static NetworkManager _singleton;
 
-        public PlayerController PlayerController => playerPrefab;
-        public PlayerRegistry PlayerRegistry => playerRegistry;
-        public Server Server => _server;
+        private readonly UnityEvent<ushort> _onConnected = new();
+        private readonly UnityEvent<ushort> _onDisconnected = new();
+        private readonly UnityEvent<ushort,string> _onSpawned = new();
+        private readonly UnityEvent<ushort> _onAddScored = new();
 
-        public static NetworkManager Singleton
-        {
-            get => _singleton;
-            private set
-            {
-                if (_singleton == null)
-                    _singleton = value;
-                else if (_singleton != value)
-                {
-                    Debug.Log($"{nameof(NetworkManager)} instance already exists, destroying object!");
-                    Destroy(value);
-                }
-            }
-        }
-
-        private void Awake()
-        {
-            Singleton = this;
-        }
+        public UnityEvent<ushort> OnConnected => _onConnected;
+        public UnityEvent<ushort> OnDisconnected => _onDisconnected;
+        public UnityEvent<ushort,string> OnSpawned => _onSpawned;
+        public UnityEvent<ushort> OnAddScored => _onAddScored;
 
         private void Start()
         {
@@ -89,20 +70,14 @@ namespace _sample.Scripts.Shared
         private void ClientConnected(object sender, ServerConnectedEventArgs e)
         {
             Debug.Log($"Client connected: {e.Client}");
-            var playerList = playerRegistry.Players;
-
-            foreach (var id in playerList)
-            {
-                if (id.Key == e.Client.Id) continue;
-                //他のクライアントが生成されたとき
-                var clientId = e.Client.Id;
-                var userName = playerRegistry.Players[clientId].Username;
-                playerSpawner.SendSpawner(clientId, userName);
-            }
+         
+            _onConnected.Invoke(e.Client.Id);
         }
 
         private void ClientDisconnected(object sender, ServerDisconnectedEventArgs e)
         {
+            _onDisconnected.Invoke(e.Client.Id);
+            
             Debug.Log($"Client disconnected: {e.Client}");
         }
 
@@ -114,5 +89,51 @@ namespace _sample.Scripts.Shared
             _server.ClientConnected -= ClientConnected;
             _server.ClientDisconnected -= ClientDisconnected;
         }
+
+        #region ToServerMessage
+
+        [MessageHandler((ushort)ClientToServerId.AddScore)]
+        private void AddScore(ushort fromClientId)
+        {
+            _onAddScored.Invoke(fromClientId);
+        }
+        
+        [MessageHandler((ushort)ClientToServerId.SpawnFromClient)]
+        private void SpawnFromClient(ushort fromClientId, Message message)
+        {
+            var username = message.GetString();
+            
+            _onSpawned.Invoke(fromClientId, username);
+        }
+
+        #endregion
+
+        #region ToClientMessage
+
+        public void SendSpawn(ushort toClient, string username)
+        {
+            var message = Message.Create(MessageSendMode.Reliable, ServerToClientId.SpawnPlayer);
+            message.AddUShort(toClient);
+            message.AddString(username);
+            _server.Send(message,toClient);
+        }
+        
+        public void SendToAllSpawn(ushort toClient, string username)
+        {
+            var message = Message.Create(MessageSendMode.Reliable, ServerToClientId.SpawnPlayer);
+            message.AddUShort(toClient);
+            message.AddString(username);
+            _server.SendToAll(message);
+        }
+        
+        public void SendAddScore(ushort toClient,int score)
+        {
+            var message = Message.Create(MessageSendMode.Reliable, ClientToServerId.AddScore);
+            message.AddUShort(toClient);
+            message.AddInt(score);
+            _server.SendToAll(message);
+        }
+
+        #endregion
     }
 }
