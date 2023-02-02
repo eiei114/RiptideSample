@@ -27,5 +27,10 @@ namespace _sample.Scripts.Core.Player
         {
             _score.Value++;
         }
+
+        private void OnDestroy()
+        {
+            _score.Dispose();
+        }
     }
 }

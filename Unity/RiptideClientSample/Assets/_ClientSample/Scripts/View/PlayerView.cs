@@ -14,9 +14,10 @@ public class PlayerView : MonoBehaviour
         set => _scoreText.text = value.ToString();
     }
     
-    public void InitPlayerView(ushort id, string name)
+    public void InitPlayerView(ushort id, string username)
     {
         _id = id;
-        _nameText.text = name;
+        _nameText.text = username;
+        _scoreText.text = "";
     }
 }

@@ -10,13 +10,14 @@ namespace _ClientSample.Scripts.View
         [SerializeField] private TMP_InputField _inputField;
         [SerializeField] private Button _connectButton;
         
-        private readonly UnityEvent<string> _connectEvent = new();
+        private readonly UnityEvent _connectEvent = new();
 
-        public UnityEvent<string> OnConnectButtonClicked => _connectEvent;
+        public UnityEvent OnConnectButtonClicked => _connectEvent;
+        public string InputName => _inputField.text;
         
         private void Awake()
         {
-            _connectButton.onClick.AddListener(() => OnConnectButtonClicked?.Invoke(_inputField.text));
+            _connectButton.onClick.AddListener(() => OnConnectButtonClicked?.Invoke());
         }
     }
 }

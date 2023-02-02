@@ -16,12 +16,24 @@ namespace _ClientSample.Scripts.Core
 
         public void RemovePlayer(ushort id)
         {
-            _players.RemoveAll(player => player.Id == id);
+            var player = GetPlayer(id);
+
+            if (player == null) return;
+
+            _players.Remove(player);
+            Destroy(player.gameObject);
         }
-        
+
         public void RemoveAllPlayers()
         {
+            // リストの中身削除と共にClientPlayerも破壊する
+            _players.ForEach(player => Destroy(player.gameObject));
             _players.Clear();
+        }
+
+        public ClientPlayer GetPlayer(ushort id)
+        {
+            return _players.Find(player => player.Id == id);
         }
     }
 }
