@@ -11,11 +11,12 @@ namespace _sample.Scripts.Shared
     public enum ServerToClientId : ushort
     {
         SpawnPlayer = 1,
+        AddScore,
     }
 
     public enum ClientToServerId : ushort
     {
-        SpawnFromClient = 1,
+        SetPlayerName = 1,
         AddScore,
     }
 
@@ -27,18 +28,18 @@ namespace _sample.Scripts.Shared
 
         private readonly UnityEvent<ushort> _onConnected = new();
         private readonly UnityEvent<ushort> _onDisconnected = new();
-        private readonly UnityEvent<ushort,string> _onSpawned = new();
-        private readonly UnityEvent<ushort> _onAddScored = new();
+        private static readonly UnityEvent<ushort, string> _onSpawned = new();
+        private static readonly UnityEvent<ushort> _onAddScored = new();
 
         public UnityEvent<ushort> OnConnected => _onConnected;
         public UnityEvent<ushort> OnDisconnected => _onDisconnected;
-        public UnityEvent<ushort,string> OnSpawned => _onSpawned;
+        public UnityEvent<ushort, string> OnSpawned => _onSpawned;
         public UnityEvent<ushort> OnAddScored => _onAddScored;
 
         private void Start()
         {
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = 60;
+            Application.targetFrameRate = 30;
 
 #if UNITY_EDITOR
             //エラーログを出力する
@@ -70,15 +71,13 @@ namespace _sample.Scripts.Shared
         private void ClientConnected(object sender, ServerConnectedEventArgs e)
         {
             Debug.Log($"Client connected: {e.Client}");
-         
             _onConnected.Invoke(e.Client.Id);
         }
 
         private void ClientDisconnected(object sender, ServerDisconnectedEventArgs e)
         {
-            _onDisconnected.Invoke(e.Client.Id);
-            
             Debug.Log($"Client disconnected: {e.Client}");
+            _onDisconnected.Invoke(e.Client.Id); 
         }
 
         private void OnApplicationQuit()
@@ -88,21 +87,21 @@ namespace _sample.Scripts.Shared
             //サーバー接続時、切断時のイベントを解除
             _server.ClientConnected -= ClientConnected;
             _server.ClientDisconnected -= ClientDisconnected;
+            
         }
 
         #region ToServerMessage
 
         [MessageHandler((ushort)ClientToServerId.AddScore)]
-        private void AddScore(ushort fromClientId)
+        private static void AddScore(ushort fromClientId, Message message)
         {
             _onAddScored.Invoke(fromClientId);
         }
-        
-        [MessageHandler((ushort)ClientToServerId.SpawnFromClient)]
-        private void SpawnFromClient(ushort fromClientId, Message message)
+
+        [MessageHandler((ushort)ClientToServerId.SetPlayerName)]
+        private static void SpawnFromClient(ushort fromClientId, Message message)
         {
             var username = message.GetString();
-            
             _onSpawned.Invoke(fromClientId, username);
         }
 
@@ -110,25 +109,27 @@ namespace _sample.Scripts.Shared
 
         #region ToClientMessage
 
-        public void SendSpawn(ushort toClient, string username)
+        public void SendSpawn(ushort toClient, ushort userid, string username, int score)
         {
             var message = Message.Create(MessageSendMode.Reliable, ServerToClientId.SpawnPlayer);
-            message.AddUShort(toClient);
+            message.AddUShort(userid);
             message.AddString(username);
-            _server.Send(message,toClient);
+            message.AddInt(score);
+            _server.Send(message, toClient);
         }
-        
+
         public void SendToAllSpawn(ushort toClient, string username)
         {
             var message = Message.Create(MessageSendMode.Reliable, ServerToClientId.SpawnPlayer);
             message.AddUShort(toClient);
             message.AddString(username);
+            message.AddInt(0);
             _server.SendToAll(message);
         }
-        
-        public void SendAddScore(ushort toClient,int score)
+
+        public void SendAddScore(ushort toClient, int score)
         {
-            var message = Message.Create(MessageSendMode.Reliable, ClientToServerId.AddScore);
+            var message = Message.Create(MessageSendMode.Reliable, ServerToClientId.AddScore);
             message.AddUShort(toClient);
             message.AddInt(score);
             _server.SendToAll(message);

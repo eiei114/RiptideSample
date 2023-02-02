@@ -1,7 +1,7 @@
 ﻿using System.Threading;
 using _sample.Scripts.Shared;
+using _ServerSample.Scripts.Presenter;
 using Cysharp.Threading.Tasks;
-using Cysharp.Threading.Tasks.Linq;
 using UnityEngine;
 
 namespace _ServerSample.Scripts.Manager
@@ -11,11 +11,11 @@ namespace _ServerSample.Scripts.Manager
         [SerializeField] private NetworkManager _networkManager;
         [SerializeField] private PlayerRegistry playerRegistry;
         [SerializeField] private PlayerSpawner playerSpawner;
-        private CancellationToken _cts;
+        private CancellationToken _ct;
 
         private void Awake()
         {
-            _cts = this.GetCancellationTokenOnDestroy();
+            _ct = this.GetCancellationTokenOnDestroy();
         }
 
         private void Start()
@@ -23,40 +23,37 @@ namespace _ServerSample.Scripts.Manager
             _networkManager.OnConnected.AddListener((id =>
             {
                 var players = playerRegistry.Players;
-                
+
                 foreach (var client in players)
                 {
-                    if (client.Id == id) continue;
+                    Debug.Log($"Spawned {client.Id} / {client.Username}");
                     var username = client.Username;
-                    _networkManager.SendSpawn(id, username);
+                    var userId = client.Id;
+                    var userScore = client.Score.Value;
+                    _networkManager.SendSpawn(id, userId, username, userScore);
                 }
             }));
 
             _networkManager.OnDisconnected.AddListener((id =>
             {
+                var player = playerRegistry.GetPlayer(id);
                 playerRegistry.UnregisterPlayer(id);
+                Destroy(player.gameObject);
             }));
 
             _networkManager.OnSpawned.AddListener(((id, username) =>
             {
                 var player = playerSpawner.Spawn(id, username);
                 playerRegistry.RegisterPlayer(player);
-
                 _networkManager.SendToAllSpawn(id, username);
+                
+                new PlayerPresenter(player, _networkManager).AddTo(_ct);
             }));
 
             _networkManager.OnAddScored.AddListener(((id) =>
             {
                 var player = playerRegistry.GetPlayer(id);
                 player.AddScored();
-            }));
-            
-            playerRegistry.OnPlayerAdded.AddListener((player =>
-            {
-                player.Score.Subscribe(value =>
-                {
-                    _networkManager.SendAddScore(player.Id,value);
-                }).AddTo(_cts);
             }));
         }
     }
