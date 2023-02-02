@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace _ClientSample.Scripts.Core
 {
@@ -6,17 +7,22 @@ namespace _ClientSample.Scripts.Core
     {
         private ushort _id;
         private string _name;
-        private int _score;
+        private readonly AsyncReactiveProperty<int> _score = new(0);
         
         public ushort Id => _id;
         public string Name => _name;
-        public int Score => _score;
+        public IReadOnlyAsyncReactiveProperty<int> Score => _score;
         
-        public void InitPlayer(ushort id, string name)
+        public int SetScore
+        {
+            set => _score.Value = value;
+        }
+        
+        public void InitPlayer(ushort id, string name,int score)
         {
             _id = id;
             _name = name;
-            _score = 0;
+            _score.Value = score;
         }
     }
 }
